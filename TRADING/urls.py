@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import AssetDetailView
+from .views import AssetDetailView,AssetTickerDetail
 
 urlpatterns = [
 # Autenticación JWT API
@@ -9,5 +9,6 @@ urlpatterns = [
     
     # API Activos Financieros
     path('assets/<str:ticker>/', AssetDetailView.as_view(), name='asset_detail'),
+    path('assets/<str:ticker>/details/', AssetTickerDetail.as_view(), name='asset_ticker_detail'),
     
 ]

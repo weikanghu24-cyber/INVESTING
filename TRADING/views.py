@@ -3,7 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .services import get_asset_price
+from .services import get_asset_price, get_assets_details
+
 from .models import SearchHistory
 
 # Vista para el Frontend (HTML)
@@ -38,3 +39,16 @@ class AssetDetailView(APIView):
         )
 
         return Response(data, status=status.HTTP_200_OK)
+
+#Vista para los detalles de un activo 
+class AssetTickerDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_ticker_detail(self,request, ticker):
+        data=get_assets_details(ticker)
+        
+        if "error" in data:
+            return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response(data, status=status.HTTP_200_OK)
+    
