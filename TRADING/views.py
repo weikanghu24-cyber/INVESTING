@@ -39,8 +39,12 @@ class AssetDetailView(APIView):
         )
 
         return Response(data, status=status.HTTP_200_OK)
-    
-    def get_ticker_detail(self, ticker):
+
+#Vista para los detalles de un activo 
+class AssetTickerDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_ticker_detail(self,request, ticker):
         data=get_assets_details(ticker)
         
         if "error" in data:
