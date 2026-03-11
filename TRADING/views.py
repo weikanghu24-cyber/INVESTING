@@ -21,8 +21,14 @@ class AssetDetailView(APIView):
         if "error" in data:
             return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
 
-        # Determinar el tipo de activo de forma simple
-        asset_type = 'crypto' if '-' in ticker else 'stock'
+        # Mapeo de quoteType → asset_type del modelo
+        TYPE_MAP = {
+        "equity": "stock",
+        "cryptocurrency": "crypto",
+        "etf": "etf"
+        }
+
+        asset_type = TYPE_MAP.get(data["type"], "stock")
 
         # Guardar historial
         SearchHistory.objects.create(
