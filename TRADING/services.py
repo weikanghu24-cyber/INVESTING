@@ -32,3 +32,30 @@ def get_asset_price(ticker: str) -> dict:
         
     except Exception as e:
         return {"error": str(e)}
+    
+def get_assets_details(ticker: str) -> dict:
+    try:
+        asset=yf.Ticker(ticker)
+        info=asset.info
+
+        # Validar si existe el precio
+        price=info.get("currentPrice") or info.get("regularMarketPrice")
+        if not price:
+            return {"error": "Ticker no encontrado 🔎❌"}
+        
+        return {
+            "ticker": ticker,
+            "name": info.get("longName") or info.get("shortName") or ticker,
+            "type": info.get("quoteType", "unknown").lower(),
+            "price": price,
+            "currency": info.get("currency", "USD"),
+            "sector": info.get("sector"),           # Solo stocks
+            "industry": info.get("industry"),        # Solo stocks
+            "market_cap": info.get("marketCap"),
+            "pe_ratio": info.get("trailingPE"),
+            "52w_high": info.get("fiftyTwoWeekHigh"),
+            "52w_low": info.get("fiftyTwoWeekLow"),
+            "description": info.get("longBusinessSummary"),
+        }
+    except Exception as e:
+            return {"error": str(e)}
