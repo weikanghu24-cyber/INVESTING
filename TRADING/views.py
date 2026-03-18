@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .services import get_asset_price, get_assets_details
 from .serializers import RegisterSerializer
+from rest_framework.permissions import AllowAny
 
 from .models import SearchHistory
 
@@ -73,4 +74,3 @@ class RegisterView(APIView):
         
         # 4. Si hay algún error (ej: email ya existe), devuelve el fallo exacto
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
