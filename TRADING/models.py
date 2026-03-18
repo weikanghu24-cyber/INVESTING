@@ -3,6 +3,7 @@ from django.db import models
 
 # Importamos el modelo base de usuario de Django
 from django.contrib.auth.models import AbstractUser
+from configuracion import settings
 
 
 # -------------------------------
@@ -63,7 +64,7 @@ class Favorite(models.Model):
     # Relación con el usuario
     # Si el usuario se elimina, también se eliminan sus favoritos
     user = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="favorites"
     )
