@@ -143,3 +143,6 @@ SIMPLE_JWT = {
 import os
 # Para que Django encuentre tu HTML
 TEMPLATES[0]['DIRS'] = [os.path.join(BASE_DIR, 'TRADING/templates')]
+#Esto le dice a Django: "Oye, a partir de ahora, cuando alguien llame a get_user_model(), 
+#dale la clase User que está dentro de la app TRADING"
+AUTH_USER_MODEL = 'TRADING.User'
