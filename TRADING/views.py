@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .services import get_asset_price, get_assets_details,assetsHistoryPrice
+from .services import get_asset_price, get_assets_details,assetsHistoryPrice,searchAsset
 from .serializers import RegisterSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -113,6 +113,18 @@ class AssetsHistoryView(APIView):
         period = request.query_params.get("period", "1mo")
         interval = request.query_params.get("interval", "1d")
         data = assetsHistoryPrice(ticker, interval, period)
+        
+        if "error" in data:
+            return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(data, status=status.HTTP_200_OK)
+    
+class SearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get("q", "")
+        data = searchAsset(query)
         
         if "error" in data:
             return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
