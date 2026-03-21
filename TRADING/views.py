@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .services import get_asset_price, get_assets_details
+from .services import get_asset_price, get_assets_details,assetsHistoryPrice
 from .serializers import RegisterSerializer
 from rest_framework.permissions import AllowAny
 
@@ -46,7 +46,7 @@ class AssetDetailView(APIView):
 class AssetTickerDetail(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_ticker_detail(self,request, ticker):
+    def get(self,request, ticker):
         data=get_assets_details(ticker)
         
         if "error" in data:
@@ -74,3 +74,16 @@ class RegisterView(APIView):
         
         # 4. Si hay algún error (ej: email ya existe), devuelve el fallo exacto
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class AssetsHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, ticker):  # ← solo ticker
+        period = request.query_params.get("period", "1mo")
+        interval = request.query_params.get("interval", "1d")
+        data = assetsHistoryPrice(ticker, interval, period)
+        
+        if "error" in data:
+            return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(data, status=status.HTTP_200_OK)
