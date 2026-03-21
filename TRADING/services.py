@@ -78,3 +78,18 @@ def assetsHistoryPrice(ticker :str,interval: str,period: str) -> dict:
             }
     except Exception as e:
         return {"error": str(e)}
+    
+
+
+def searchAsset(query: str) -> dict:
+    try:
+        resultado = yf.Search(query)
+        quotes = resultado.quotes  # → lista de activos encontrados
+
+        if not quotes:
+            return {"error": "No hay resultados 🔎❌"}
+
+        return {"results": quotes}
+
+    except Exception as e:
+        return {"error": str(e)}
