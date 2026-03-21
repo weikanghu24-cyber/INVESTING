@@ -3,23 +3,17 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
-
-from .services import get_asset_price, get_assets_details
-from .serializers import RegisterSerializer, FavoriteSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from .services import get_asset_price, get_assets_details, assetsHistoryPrice,searchAsset
+from .serializers import RegisterSerializer, FavoriteSerializer, UserProfileSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 from .models import SearchHistory, Favorite
-
 # Mapeamos los valores que devuelve yfinance al formato del modelo
 TYPE_MAP = {
     "equity": "stock",
     "cryptocurrency": "crypto",
     "etf": "etf"
 }
-from .services import get_asset_price, get_assets_details,assetsHistoryPrice,searchAsset
-from .serializers import RegisterSerializer
-from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserProfileSerializer
-from .models import SearchHistory
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +35,35 @@ class RegisterView(APIView):
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request):
+        try:
+            # 1. El frontend nos tiene que enviar su refresh token en el JSON
+            refresh_token = request.data["refresh"]
+            
+            # 2. Lo convertimos en un objeto Token de SimpleJWT
+            token = RefreshToken(refresh_token)
+            
+            # 3. ¡Lo fulminamos! (Lo metemos en la lista negra)
+            token.blacklist()
+            
+            return Response({"mensaje": "Sesión cerrada correctamente."}, status=status.HTTP_205_RESET_CONTENT)
+        
+        except Exception as e:
+            # Si el token ya estaba en la lista negra o es falso, da error
+            return Response({"error": "El token es inválido o ya ha expirado."}, status=status.HTTP_400_BAD_REQUEST)
+        
+class UserProfileView(APIView):
+    # Exigimos que el usuario tenga un token válido para entrar aquí
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # request.user ya tiene los datos del usuario que hizo la petición
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 
@@ -86,7 +108,27 @@ class AssetTickerDetail(APIView):
 
         return Response(data, status=status.HTTP_200_OK)
 
+class AssetsHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request, ticker):  # ← solo ticker
+        period = request.query_params.get("period", "1mo")
+        interval = request.query_params.get("interval", "1d")
+        data = assetsHistoryPrice(ticker, interval, period)
+
+        if "error" in data:
+            return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
+        
+class SearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get("q", "")
+        data = searchAsset(query)
+
+        if "error" in data:
+            return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
+    
 # ── Favoritos ─────────────────────────────────────────────────────────────────
 
 class FavoriteListCreateView(APIView):
@@ -149,16 +191,3 @@ class FavoritePricesView(APIView):
                 })
 
         return Response(data, status=status.HTTP_200_OK)
-
-class SearchView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        query = request.query_params.get("q", "")
-        data = searchAsset(query)
-
-        if "error" in data:
-            return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
-
-        return Response(data, status=status.HTTP_200_OK)
-        return Response(prices)
