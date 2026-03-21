@@ -59,3 +59,22 @@ def get_assets_details(ticker: str) -> dict:
         }
     except Exception as e:
             return {"error": str(e)}
+    
+
+def assetsHistoryPrice(ticker :str,interval: str,period: str) -> dict:
+    try:
+        asset=yf.Ticker(ticker)
+        hist=asset.history(interval=interval,period=period)
+        if hist.empty:
+            return {"error": "No hay historial de precios 🔎❌"} 
+        else:
+            hist = hist.reset_index()
+            hist['Date'] = hist['Date'].astype(str)
+            return {
+                "ticker": ticker,
+                "interval": interval,
+                "period": period,
+                "data": hist.to_dict(orient="records"),
+            }
+    except Exception as e:
+        return {"error": str(e)}
