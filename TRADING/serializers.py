@@ -24,3 +24,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password']
         )
         return user
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        # Aquí ponemos SOLO los campos que el usuario tiene permitido ver de su propio perfil
+        fields = ('id', 'email', 'username', 'avatar', 'created_at')

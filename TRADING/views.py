@@ -6,7 +6,8 @@ from rest_framework import status
 from .services import get_asset_price, get_assets_details,assetsHistoryPrice,searchAsset
 from .serializers import RegisterSerializer
 from rest_framework.permissions import AllowAny
-
+from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import UserProfileSerializer
 from .models import SearchHistory
 
 # Vista para el Frontend (HTML)
@@ -74,6 +75,36 @@ class RegisterView(APIView):
         
         # 4. Si hay algún error (ej: email ya existe), devuelve el fallo exacto
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#Vista para cerra la sesión
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            # 1. El frontend nos tiene que enviar su refresh token en el JSON
+            refresh_token = request.data["refresh"]
+            
+            # 2. Lo convertimos en un objeto Token de SimpleJWT
+            token = RefreshToken(refresh_token)
+            
+            # 3. Lo metemos en la lista negra
+            token.blacklist()
+            
+            return Response({"mensaje": "Sesión cerrada correctamente."}, status=status.HTTP_205_RESET_CONTENT)
+        
+        except Exception as e:
+            # Si el token ya estaba en la lista negra o es falso, da error
+            return Response({"error": "El token es inválido o ya ha expirado."}, status=status.HTTP_400_BAD_REQUEST)
+from .serializers import UserProfileSerializer
+#Vista para ver la información del usuario
+class UserProfileView(APIView):
+    # Exigimos que el usuario tenga un token válido para entrar aquí
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # request.user ya tiene los datos del usuario que hizo la petición
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 class AssetsHistoryView(APIView):
     permission_classes = [IsAuthenticated]
