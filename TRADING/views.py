@@ -1,8 +1,19 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
+
+from .services import get_asset_price, get_assets_details
+from .serializers import RegisterSerializer, FavoriteSerializer
+from .models import SearchHistory, Favorite
+
+# Mapeamos los valores que devuelve yfinance al formato del modelo
+TYPE_MAP = {
+    "equity": "stock",
+    "cryptocurrency": "crypto",
+    "etf": "etf"
+}
 from .services import get_asset_price, get_assets_details,assetsHistoryPrice,searchAsset
 from .serializers import RegisterSerializer
 from rest_framework.permissions import AllowAny
@@ -10,17 +21,36 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserProfileSerializer
 from .models import SearchHistory
 
-# Vista para el Frontend (HTML)
+# ── Frontend ──────────────────────────────────────────────────────────────────
+
 def index(request):
     return render(request, 'TRADING/index.html')
 
-# Vista para la API REST (JSON)
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"mensaje": "Usuario creado con éxito. ¡Ya puedes iniciar sesión!"},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ── Assets ────────────────────────────────────────────────────────────────────
+
 class AssetDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, ticker):
         data = get_asset_price(ticker)
-        
+
         if "error" in data:
             return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
 
@@ -43,22 +73,33 @@ class AssetDetailView(APIView):
 
         return Response(data, status=status.HTTP_200_OK)
 
-#Vista para los detalles de un activo 
+
 class AssetTickerDetail(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self,request, ticker):
-        data=get_assets_details(ticker)
-        
+    # ⚠️ BUG CORREGIDO: antes se llamaba get_ticker_detail → DRF nunca lo ejecutaba
+    def get(self, request, ticker):
+        data = get_assets_details(ticker)
+
         if "error" in data:
             return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
-        
+
         return Response(data, status=status.HTTP_200_OK)
-    
-class RegisterView(APIView):
-    # Permitimos que cualquier persona (AllowAny) pueda acceder a esta ruta
-    # porque obviamente aún no tienen token para registrarse 
-    permission_classes = [AllowAny]
+
+
+# ── Favoritos ─────────────────────────────────────────────────────────────────
+
+class FavoriteListCreateView(APIView):
+    """
+    GET  /api/v1/favorites/  → Lista los favoritos del usuario
+    POST /api/v1/favorites/  → Añade un activo a favoritos
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        favorites = Favorite.objects.filter(user=request.user).order_by('-added_at')
+        serializer = FavoriteSerializer(favorites, many=True)
+        return Response(serializer.data)
 
     def post(self, request):
         # 1. Le pasamos los datos del frontend al serializador
@@ -72,61 +113,52 @@ class RegisterView(APIView):
                 {"mensaje": "Usuario creado con éxito. ¡Ya puedes iniciar sesión!"}, 
                 status=status.HTTP_201_CREATED
             )
-        
-        # 4. Si hay algún error (ej: email ya existe), devuelve el fallo exacto
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-#Vista para cerra la sesión
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        try:
-            # 1. El frontend nos tiene que enviar su refresh token en el JSON
-            refresh_token = request.data["refresh"]
-            
-            # 2. Lo convertimos en un objeto Token de SimpleJWT
-            token = RefreshToken(refresh_token)
-            
-            # 3. Lo metemos en la lista negra
-            token.blacklist()
-            
-            return Response({"mensaje": "Sesión cerrada correctamente."}, status=status.HTTP_205_RESET_CONTENT)
-        
-        except Exception as e:
-            # Si el token ya estaba en la lista negra o es falso, da error
-            return Response({"error": "El token es inválido o ya ha expirado."}, status=status.HTTP_400_BAD_REQUEST)
-from .serializers import UserProfileSerializer
-#Vista para ver la información del usuario
-class UserProfileView(APIView):
-    # Exigimos que el usuario tenga un token válido para entrar aquí
+        favorite.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FavoritePricesView(APIView):
+    """
+    GET /api/v1/favorites/prices/  → Precios actuales de todos los favoritos
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # request.user ya tiene los datos del usuario que hizo la petición
-        serializer = UserProfileSerializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-class AssetsHistoryView(APIView):
-    permission_classes = [IsAuthenticated]
+        favorites = Favorite.objects.filter(user=request.user)
 
-    def get(self, request, ticker):  # ← solo ticker
-        period = request.query_params.get("period", "1mo")
-        interval = request.query_params.get("interval", "1d")
-        data = assetsHistoryPrice(ticker, interval, period)
-        
-        if "error" in data:
-            return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
+        if not favorites.exists():
+            return Response([])
+
+        prices = []
+        for fav in favorites:
+            data = get_asset_price(fav.ticker)
+            if "error" in data:
+                # Si un ticker falla no rompemos el endpoint entero
+                prices.append({
+                    'id': fav.id,
+                    'ticker': fav.ticker,
+                    'asset_type': fav.asset_type,
+                    'error': 'No se pudo obtener el precio.'
+                })
+            else:
+                prices.append({
+                    'id': fav.id,
+                    'asset_type': fav.asset_type,
+                    **data
+                })
 
         return Response(data, status=status.HTTP_200_OK)
-    
+
 class SearchView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         query = request.query_params.get("q", "")
         data = searchAsset(query)
-        
+
         if "error" in data:
             return Response({"detail": data["error"]}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(data, status=status.HTTP_200_OK)
+        return Response(prices)

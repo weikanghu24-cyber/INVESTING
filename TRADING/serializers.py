@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from TRADING.models import Favorite
 
 # Obtenemos tu modelo de usuario personalizado
 User = get_user_model()
@@ -24,6 +25,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password']
         )
         return user
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Favorite
+        fields = ['id', 'ticker', 'asset_type', 'added_at']
+        read_only_fields = ['id', 'asset_type', 'added_at']
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
