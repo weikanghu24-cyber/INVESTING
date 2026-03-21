@@ -10,6 +10,6 @@ urlpatterns = [
     # API Activos Financieros
     path('assets/<str:ticker>/detail/', AssetTickerDetail.as_view(), name='asset_ticker_detail'),
     path('assets/<str:ticker>/', AssetDetailView.as_view(), name='asset_detail'),
-    path('assets/<str:ticker>/history/<str:interval>/<str:period>/', AssetsHistoryView.as_view(), name='asset_history'),
+    path('assets/<str:ticker>/history/', AssetsHistoryView.as_view(), name='asset_history'),
     
 ]

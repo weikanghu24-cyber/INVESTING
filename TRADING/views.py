@@ -78,7 +78,9 @@ class RegisterView(APIView):
 class AssetsHistoryView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, ticker, interval, period):
+    def get(self, request, ticker):  # ← solo ticker
+        period = request.query_params.get("period", "1mo")
+        interval = request.query_params.get("interval", "1d")
         data = assetsHistoryPrice(ticker, interval, period)
         
         if "error" in data:
